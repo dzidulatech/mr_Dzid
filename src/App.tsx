@@ -36,9 +36,72 @@ import ProgressTracker from './components/ProgressTracker';
 import TeachTheAi from './components/TeachTheAi';
 import Settings from './components/Settings';
 
+import { 
+  db, 
+  auth, 
+  signInWithGoogle, 
+  signOutUser, 
+  handleFirestoreError, 
+  OperationType 
+} from './firebase';
+import { 
+  onAuthStateChanged, 
+  User 
+} from 'firebase/auth';
+import { 
+  doc, 
+  setDoc, 
+  getDoc, 
+  collection, 
+  getDocs, 
+  deleteDoc,
+  getDocFromServer
+} from 'firebase/firestore';
+
 export default function App() {
   const [activePage, setActivePage] = useState<string>('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Authentication & Database State Managers
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [dbConnected, setDbConnected] = useState<boolean>(false);
+  const [isLoadingDb, setIsLoadingDb] = useState<boolean>(false);
+
+  // Connection testing dry-run validation on boot
+  useEffect(() => {
+    async function testDbConnection() {
+      try {
+        await getDocFromServer(doc(db, 'test', 'connection'));
+        setDbConnected(true);
+      } catch (error) {
+        console.warn("Firestore connection check dry-run completed safely:", error);
+        if (error instanceof Error && error.message.includes('the client is offline')) {
+          setDbConnected(false);
+        } else {
+          setDbConnected(true);
+        }
+      }
+    }
+    testDbConnection();
+  }, []);
+
+  // Google Login and Logout callback utilities
+  const handleGoogleSignIn = async () => {
+    try {
+      await signInWithGoogle();
+    } catch (e) {
+      console.error("Sign in failed:", e);
+    }
+  };
+
+  const handleGoogleSignOut = async () => {
+    try {
+      await signOutUser();
+      setCurrentUser(null);
+    } catch (e) {
+      console.error("Sign out failed:", e);
+    }
+  };
 
   // Late-night 'Deep Charcoal' study theme switch manager
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
@@ -119,6 +182,187 @@ export default function App() {
   const [reviewSchedule, setReviewSchedule] = useState<ReviewTask[]>([]);
   const [studentQuestions, setStudentQuestions] = useState<StudentQuestion[]>([]);
 
+  // Custom Settings
+  const [aiSettings, setAiSettings] = useState<AISettings>(() => {
+    try {
+      const saved = localStorage.getItem('feynman_ai_settings');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (e) {
+      console.warn('Could not load settings from localStorage', e);
+    }
+    return {
+      provider: 'gemini',
+      modelName: 'gemini-3.5-flash',
+      apiKey: '',
+    };
+  });
+
+  // Daily Study Goal and metrics state managers
+  const [dailyGoal, setDailyGoal] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('feynman_daily_goal');
+      return saved ? parseInt(saved, 10) : 3;
+    } catch {
+      return 3;
+    }
+  });
+
+  const [completedLessonsToday, setCompletedLessonsToday] = useState<{ lessonId: string; dateStr: string }[]>(() => {
+    try {
+      const saved = localStorage.getItem('feynman_completed_lessons_today');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const todayStr = new Date().toDateString();
+        // Clear old dates dynamically and only keep today's lesson completions
+        return parsed.filter((item: any) => item.dateStr === todayStr);
+      }
+    } catch {
+      // ignore
+    }
+    return [];
+  });
+
+  // Real-time synchronization loader and hydrator
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setCurrentUser(user);
+      if (user) {
+        setIsLoadingDb(true);
+        try {
+          // 1. Load User Profile details
+          const userDocRef = doc(db, 'users', user.uid);
+          const userDocSnap = await getDoc(userDocRef);
+          
+          if (userDocSnap.exists()) {
+            const data = userDocSnap.data();
+            if (data.dailyGoal !== undefined) setDailyGoal(data.dailyGoal);
+            if (data.reviewStreak !== undefined) setReviewStreak(data.reviewStreak);
+            if (data.completedLessonsToday !== undefined) setCompletedLessonsToday(data.completedLessonsToday);
+          } else {
+            // Setup new profile
+            await setDoc(userDocRef, {
+              uid: user.uid,
+              dailyGoal,
+              reviewStreak,
+              completedLessonsToday
+            });
+          }
+
+          // 2. Fetch User Courses
+          const coursesColRef = collection(db, 'users', user.uid, 'courses');
+          const coursesSnapshot = await getDocs(coursesColRef);
+          const dbCourses: Course[] = [];
+          coursesSnapshot.forEach(docSnap => {
+            dbCourses.push(docSnap.data() as Course);
+          });
+
+          // 3. Fetch Flashcards
+          const flashcardsColRef = collection(db, 'users', user.uid, 'flashcards');
+          const flashcardsSnapshot = await getDocs(flashcardsColRef);
+          const dbFlashcards: Flashcard[] = [];
+          flashcardsSnapshot.forEach(docSnap => {
+            dbFlashcards.push(docSnap.data() as Flashcard);
+          });
+
+          // 4. Fetch Review Tasks
+          const reviewTasksColRef = collection(db, 'users', user.uid, 'reviewTasks');
+          const reviewTasksSnapshot = await getDocs(reviewTasksColRef);
+          const dbReviewTasks: ReviewTask[] = [];
+          reviewTasksSnapshot.forEach(docSnap => {
+            dbReviewTasks.push(docSnap.data() as ReviewTask);
+          });
+
+          // If the cloud already has user courses, load them!
+          if (dbCourses.length > 0) {
+            setCourses(dbCourses);
+            setSelectedCourseId(dbCourses[0].id);
+          } else {
+            // Upload current preloaded template courses to live Firestore
+            for (const c of courses) {
+              const enriched = { ...c, userId: user.uid };
+              await setDoc(doc(db, 'users', user.uid, 'courses', c.id), enriched)
+                .catch(err => handleFirestoreError(err, OperationType.CREATE, `users/${user.uid}/courses/${c.id}`));
+            }
+          }
+
+          if (dbFlashcards.length > 0) {
+            setFlashcards(dbFlashcards);
+          } else {
+            for (const f of flashcards) {
+              const enriched = { ...f, userId: user.uid };
+              await setDoc(doc(db, 'users', user.uid, 'flashcards', f.id), enriched)
+                .catch(err => handleFirestoreError(err, OperationType.CREATE, `users/${user.uid}/flashcards/${f.id}`));
+            }
+          }
+
+          if (dbReviewTasks.length > 0) {
+            setReviewSchedule(dbReviewTasks);
+          } else {
+            for (const r of reviewSchedule) {
+              const enriched = { ...r, userId: user.uid };
+              await setDoc(doc(db, 'users', user.uid, 'reviewTasks', r.id), enriched)
+                .catch(err => handleFirestoreError(err, OperationType.CREATE, `users/${user.uid}/reviewTasks/${r.id}`));
+            }
+          }
+
+        } catch (e) {
+          console.error("Hydration from cloud database failed:", e);
+        } finally {
+          setIsLoadingDb(false);
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, [auth]);
+
+  // Sync profile edits back to cloud database
+  useEffect(() => {
+    if (currentUser && !isLoadingDb) {
+      const userDocRef = doc(db, 'users', currentUser.uid);
+      setDoc(userDocRef, {
+        uid: currentUser.uid,
+        dailyGoal,
+        reviewStreak,
+        completedLessonsToday
+      }, { merge: true }).catch(err => handleFirestoreError(err, OperationType.UPDATE, `users/${currentUser.uid}`));
+    }
+  }, [dailyGoal, reviewStreak, completedLessonsToday, currentUser, isLoadingDb]);
+
+  // Sync state modifications of courses back to cloud database
+  useEffect(() => {
+    if (currentUser && !isLoadingDb && courses.length > 0) {
+      courses.forEach(async (course) => {
+        const enriched = { ...course, userId: currentUser.uid };
+        await setDoc(doc(db, 'users', currentUser.uid, 'courses', course.id), enriched)
+          .catch(err => handleFirestoreError(err, OperationType.WRITE, `users/${currentUser.uid}/courses/${course.id}`));
+      });
+    }
+  }, [courses, currentUser, isLoadingDb]);
+
+  // Sync flashcards back to cloud database
+  useEffect(() => {
+    if (currentUser && !isLoadingDb && flashcards.length > 0) {
+      flashcards.forEach(async (card) => {
+        const enriched = { ...card, userId: currentUser.uid };
+        await setDoc(doc(db, 'users', currentUser.uid, 'flashcards', card.id), enriched)
+          .catch(err => handleFirestoreError(err, OperationType.WRITE, `users/${currentUser.uid}/flashcards/${card.id}`));
+      });
+    }
+  }, [flashcards, currentUser, isLoadingDb]);
+
+  // Sync review schedule tasks back to cloud database
+  useEffect(() => {
+    if (currentUser && !isLoadingDb && reviewSchedule.length > 0) {
+      reviewSchedule.forEach(async (task) => {
+        const enriched = { ...task, userId: currentUser.uid };
+        await setDoc(doc(db, 'users', currentUser.uid, 'reviewTasks', task.id), enriched)
+          .catch(err => handleFirestoreError(err, OperationType.WRITE, `users/${currentUser.uid}/reviewTasks/${task.id}`));
+      });
+    }
+  }, [reviewSchedule, currentUser, isLoadingDb]);
+
   // Monitor badge eligibility and trigger toasts
   useEffect(() => {
     const isCourseCompleted = courses.some(c => c.progress >= 100 || c.finalExamCompleted);
@@ -154,23 +398,7 @@ export default function App() {
   }, [courses, reviewStreak]);
 
   
-  // Custom Settings
-  const [aiSettings, setAiSettings] = useState<AISettings>(() => {
-    try {
-      const saved = localStorage.getItem('feynman_ai_settings');
-      if (saved) {
-        return JSON.parse(saved);
-      }
-    } catch (e) {
-      console.warn('Could not load settings from localStorage', e);
-    }
-    return {
-      provider: 'gemini',
-      modelName: 'gemini-3.5-flash',
-      apiKey: '',
-    };
-  });
-
+  // Custom Settings effect tracker
   useEffect(() => {
     try {
       localStorage.setItem('feynman_ai_settings', JSON.stringify(aiSettings));
@@ -178,31 +406,6 @@ export default function App() {
       console.warn('Could not save settings to localStorage', e);
     }
   }, [aiSettings]);
-
-  // Daily Study Goal and metrics state managers
-  const [dailyGoal, setDailyGoal] = useState<number>(() => {
-    try {
-      const saved = localStorage.getItem('feynman_daily_goal');
-      return saved ? parseInt(saved, 10) : 3;
-    } catch {
-      return 3;
-    }
-  });
-
-  const [completedLessonsToday, setCompletedLessonsToday] = useState<{ lessonId: string; dateStr: string }[]>(() => {
-    try {
-      const saved = localStorage.getItem('feynman_completed_lessons_today');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        const todayStr = new Date().toDateString();
-        // Clear old dates dynamically and only keep today's lesson completions
-        return parsed.filter((item: any) => item.dateStr === todayStr);
-      }
-    } catch {
-      // ignore
-    }
-    return [];
-  });
 
   const handleUpdateDailyGoal = (newGoal: number) => {
     setDailyGoal(newGoal);
@@ -1078,11 +1281,60 @@ export default function App() {
         )}
 
         {/* User Badge footer */}
-        <div className={`p-4 border-t border-slate-850 text-xs text-slate-500 ${isZenMode ? 'text-center' : ''}`} id="sidebar-footer">
+        <div className={`p-4 border-t border-slate-850 text-xs text-slate-500`} id="sidebar-footer">
           {isZenMode ? (
-            <span className="text-slate-400 font-bold" title="Scholar active">🎓</span>
+            <div className="flex flex-col items-center gap-2">
+              <span className="text-slate-400 font-bold" title="Scholar active">🎓</span>
+              <div 
+                className={`h-2.5 w-2.5 rounded-full ${currentUser ? 'bg-emerald-500 animate-pulse' : 'bg-slate-650'}`} 
+                title={currentUser ? `Connected as ${currentUser.email}` : "Localized Mode (Not logged in)"}
+              />
+            </div>
           ) : (
-            <>Logged in: <strong className="text-slate-300 block">{navigator.userAgent.includes('Mobile') ? 'Mobile User' : 'Feynman Scholar'}</strong></>
+            <div>
+              {currentUser ? (
+                <div className="space-y-2 text-left">
+                  <div className="flex items-center gap-2.5">
+                    {currentUser.photoURL ? (
+                      <img src={currentUser.photoURL} alt={currentUser.displayName || ''} className="h-6.5 w-6.5 rounded-full border border-slate-700" referrerPolicy="no-referrer" />
+                    ) : (
+                      <div className="h-6.5 w-6.5 bg-blue-600 rounded-full flex items-center justify-center text-[10px] font-bold text-white uppercase font-sans">
+                        {currentUser.displayName ? currentUser.displayName[0] : 'S'}
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11px] font-bold text-slate-200 truncate leading-tight font-sans">
+                        {currentUser.displayName || 'Learner'}
+                      </p>
+                      <p className="text-[9px] text-emerald-400 font-semibold flex items-center gap-1.5 mt-0.5 leading-none font-sans">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-450 animate-ping shrink-0" />
+                        Firestore Synced
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleGoogleSignOut}
+                    className="w-full text-center py-1.5 rounded-lg bg-slate-850 hover:bg-slate-800 text-[10px] font-bold text-slate-400 hover:text-slate-200 border border-slate-800 transition-colors cursor-pointer font-sans"
+                  >
+                    Disconnect Cloud
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-1.5 text-left">
+                  <p className="text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider leading-none">Database Storage</p>
+                  <button
+                    onClick={handleGoogleSignIn}
+                    className="w-full py-2 px-3 rounded-lg bg-blue-600 hover:bg-blue-500 hover:shadow-md text-[11px] font-bold text-white flex items-center justify-center gap-2 transition-all cursor-pointer font-sans"
+                    id="sidebar-google-connect-btn"
+                  >
+                    Connect Database
+                  </button>
+                  <p className="text-[9px] text-slate-550 leading-relaxed font-sans mt-1">
+                    Sign in with Google to establish cloud database syncing.
+                  </p>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </aside>
@@ -1174,6 +1426,8 @@ export default function App() {
                 completedLessonsCountToday={completedLessonsToday.length}
                 onUpdateDailyGoal={handleUpdateDailyGoal}
                 onDeleteCourse={handleDeleteCourse}
+                currentUser={currentUser}
+                onSignIn={handleGoogleSignIn}
               />
             )}
 

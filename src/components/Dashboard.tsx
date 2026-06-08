@@ -18,6 +18,8 @@ interface DashboardProps {
   completedLessonsCountToday: number;
   onUpdateDailyGoal: (newGoal: number) => void;
   onDeleteCourse: (courseId: string) => void;
+  currentUser: any;
+  onSignIn: () => void;
 }
 
 export default function Dashboard({
@@ -30,6 +32,8 @@ export default function Dashboard({
   completedLessonsCountToday,
   onUpdateDailyGoal,
   onDeleteCourse,
+  currentUser,
+  onSignIn,
 }: DashboardProps) {
   const [courseToDelete, setCourseToDelete] = useState<string | null>(null);
   const activeCourse = courses[0]; // Highlight or use the first active course
@@ -67,6 +71,39 @@ export default function Dashboard({
           <Plus className="h-5 w-5" />
           Create New Course
         </button>
+      </div>
+
+      {/* Cloud Sync Status Info Header */}
+      <div className="bg-slate-50 border border-slate-200/80 rounded-2xl px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm" id="firebase-status-banner">
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-8 bg-blue-100 rounded-lg flex items-center justify-center text-blue-650">
+            <RefreshCw className={`h-4.5 w-4.5 ${currentUser ? 'animate-spin' : ''}`} style={{ animationDuration: '8s' }} />
+          </div>
+          <div className="text-left">
+            <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest block">Cloud Infrastructure Connectivity</span>
+            <p className="text-xs text-slate-600 mt-0.5">
+              {currentUser ? (
+                <span>Connected to Firebase database. Syncing courses and spaced repetition tasks dynamically under <strong>{currentUser.email}</strong>.</span>
+              ) : (
+                <span>Running in localized storage mode. Connect to secure and save your customized syllabus in the cloud database.</span>
+              )}
+            </p>
+          </div>
+        </div>
+        {currentUser ? (
+          <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-700 px-3 py-1.5 rounded-xl text-xs font-mono font-bold leading-none">
+            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+            LIVE WORKSPACE
+          </div>
+        ) : (
+          <button
+            onClick={onSignIn}
+            className="px-4 py-2 bg-slate-900 duration-200 active:scale-97 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer border border-slate-800 shrink-0"
+            id="connect-firebase-btn"
+          >
+            Connect Firebase Database
+          </button>
+        )}
       </div>
 
       {/* Grid Layout */}

@@ -1,0 +1,60 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Catch-all safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Validate matches current authenticated user ID
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Validate ID length and format to prevent character injection attacks
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Users Collection ---
+    match /users/{userId} {
+      allow get, list: if isOwner(userId);
+      allow create, update: if isOwner(userId) && (
+        incoming().uid == userId && 
+        incoming().dailyGoal is int &&
+        incoming().dailyGoal >= 1 &&
+        incoming().dailyGoal <= 100
+      );
+      allow delete: if false; // Users profiles should not be deleted directly
+
+      // --- Courses subcollection ---
+      match /courses/{courseId} {
+        allow read, write: if isOwner(userId) && isValidId(courseId);
+      }
+
+      // --- Flashcards subcollection ---
+      match /flashcards/{flashcardId} {
+        allow read, write: if isOwner(userId) && isValidId(flashcardId);
+      }
+
+      // --- ReviewTasks subcollection ---
+      match /reviewTasks/{reviewTaskId} {
+        allow read, write: if isOwner(userId) && isValidId(reviewTaskId);
+      }
+    }
+  }
+}

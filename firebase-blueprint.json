@@ -1,0 +1,91 @@
+{
+  "entities": {
+    "user": {
+      "title": "User Profile",
+      "description": "Information about the registered user including daily goals, completed lessons, streaks, and settings.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "dailyGoal": { "type": "integer" },
+        "reviewStreak": { "type": "integer" },
+        "completedLessonsToday": { "type": "array" }
+      },
+      "required": ["uid"]
+    },
+    "course": {
+      "title": "Course",
+      "description": "An educational course generated or imported by the user.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "summary": { "type": "string" },
+        "sourceType": { "type": "string" },
+        "sourceTitle": { "type": "string" },
+        "difficultyLevel": { "type": "string" },
+        "progress": { "type": "number" },
+        "currentChapterId": { "type": "string" },
+        "currentLessonId": { "type": "string" },
+        "finalExamCompleted": { "type": "boolean" },
+        "finalExamScore": { "type": "number" },
+        "weakTopics": { "type": "array" },
+        "chapters": { "type": "array" },
+        "finalExam": { "type": "array" },
+        "mindMap": { "type": "object" }
+      },
+      "required": ["id", "userId", "title"]
+    },
+    "flashcard": {
+      "title": "Flashcard",
+      "description": "Flashcard item for spaced repetition review.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "courseId": { "type": "string" },
+        "question": { "type": "string" },
+        "answer": { "type": "string" },
+        "category": { "type": "string" },
+        "box": { "type": "integer" },
+        "nextReviewDate": { "type": "string" }
+      },
+      "required": ["id", "userId", "courseId"]
+    },
+    "reviewTask": {
+      "title": "Review Task",
+      "description": "A scheduled review task in the Leitner spaced repetition system.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "concept": { "type": "string" },
+        "courseId": { "type": "string" },
+        "chapterId": { "type": "string" },
+        "lessonId": { "type": "string" },
+        "type": { "type": "string" },
+        "scheduledDate": { "type": "string" },
+        "completed": { "type": "boolean" }
+      },
+      "required": ["id", "userId", "courseId"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "user",
+      "description": "User profile configuration document"
+    },
+    "/users/{userId}/courses/{courseId}": {
+      "schema": "course",
+      "description": "Individual courses available for a given user"
+    },
+    "/users/{userId}/flashcards/{flashcardId}": {
+      "schema": "flashcard",
+      "description": "Flashcard lists mapped to courses"
+    },
+    "/users/{userId}/reviewTasks/{reviewTaskId}": {
+      "schema": "reviewTask",
+      "description": "The spaced repetition items for a given user"
+    }
+  }
+}
