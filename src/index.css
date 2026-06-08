@@ -1,0 +1,168 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-serif: "Playfair Display", Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-display: "Playfair Display", Georgia, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* Re-route slate utility families to build the Natural Sand and Charcoal theme base */
+  --color-slate-50: #F5F2ED;
+  --color-slate-100: #EAE4D9;
+  --color-slate-150: #E6E2D3;
+  --color-slate-200: #E6E2D3;
+  --color-slate-300: #C2BEB4;
+  --color-slate-400: #A39E92;
+  --color-slate-500: #8C887D;
+  --color-slate-600: #736F64;
+  --color-slate-700: #5E5B51;
+  --color-slate-800: #494740;
+  --color-slate-850: #303B34; /* Custom warm-wood border for dark zones */
+  --color-slate-900: #3D3D3D;
+  --color-slate-950: #292824;
+
+  /* Re-route blue utility families to match the signature Brand Sage Green accent */
+  --color-blue-50: #F0F4F2;
+  --color-blue-100: #DDE5B6; /* Beautiful soft olive moss */
+  --color-blue-400: #DDE5B6; /* Soft green indicator */
+  --color-blue-500: #719385;
+  --color-blue-600: #5A7D6F; /* Deep premium sage */
+  --color-blue-700: #466256;
+  --color-blue-800: #344A41;
+  --color-blue-900: #21302A;
+
+  /* Re-route green states to modern sage leaf colors */
+  --color-emerald-50: #ECF2E8;
+  --color-emerald-100: #E4ECE0;
+  --color-emerald-500: #5A7D6F;
+  --color-emerald-600: #4C6A5E;
+
+  /* Re-route red / orange / rose styles to rich Earth Brown highlights */
+  --color-rose-50: #F4EAE1;
+  --color-rose-100: #EEDCD0;
+  --color-rose-500: #BC6C25; /* Earth brown accent */
+  --color-rose-600: #A25B1D;
+  --color-red-50: #F4EAE1;
+  --color-red-100: #EEDCD0;
+  --color-red-500: #BC6C25;
+  --color-red-600: #A25B1D;
+  --color-amber-500: #BC6C25;
+}
+
+/* Custom interactive aesthetic smooth scroll overrides */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: #F5F2ED;
+  color: #3D3D3D;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Elevate headers globally to Handcrafted Academic Serif */
+h1, h2, h3, h4, .font-serif-display {
+  font-family: var(--font-serif) !important;
+  letter-spacing: -0.0125em;
+}
+
+/* Scrollbar styling matching the warm beige tones */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F5F2ED;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #EAE4D9;
+  border-radius: 9999px;
+  border: 2px solid #F5F2ED;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #C2BEB4;
+}
+
+/* ==========================================
+   LATE-NIGHT DEEP CHARCOAL STUDY THEME
+   ========================================== */
+
+.dark-theme {
+  --color-white: #171716;          /* Clean dark charcoal card backgrounds */
+  --color-slate-50: #0E0E0D;       /* Deep solid late-night background canvas */
+  --color-slate-100: #1D1D1C;      /* Warm charcoal layout sections */
+  --color-slate-150: #292928;      /* Soft structural dividers */
+  --color-slate-200: #292928;      /* Solid container borders */
+  --color-slate-300: #7E7D77;      /* Secondary structural descriptors */
+  --color-slate-400: #93928B;      /* Info labeling details */
+  --color-slate-500: #A8A7A0;      /* Muted descriptive titles */
+  --color-slate-600: #C4C2B9;      /* Prose and readable paragraphs */
+  --color-slate-700: #DBDAD1;      /* Primary readability text copy */
+  --color-slate-800: #EDECDF;      /* Display titles and metadata headings */
+  --color-slate-900: #FAF9F3;      /* Maximum contrast headers */
+  --color-slate-955: #060606;      /* Ultimate late night absolute black shadows */
+
+  /* Make sure olive and brand colors remain highly luminous & glowing in late-night */
+  --color-blue-50: #1B211E;        /* Subtle green-tinted charcoal zone highlights */
+  --color-blue-100: #CBD5A2;       /* Bright soft glowing olive leaf */
+  --color-blue-400: #CBD5A2;       
+  --color-blue-500: #82A596;       /* Slightly more brightened sage green */
+  --color-blue-600: #6B8F80;       /* Glowy medium sage indicator accent */
+  --color-blue-700: #57786C;
+  
+  /* Saturated earth tone elements become radiant amber bronze details */
+  --color-rose-50: #261D15;
+  --color-rose-100: #33261C;
+  --color-rose-500: #D08740;
+}
+
+body.dark-theme {
+  background-color: #0E0E0D;
+  color: #EDECDF;
+}
+
+body.dark-theme ::-webkit-scrollbar-track {
+  background: #0E0E0D;
+}
+
+body.dark-theme ::-webkit-scrollbar-thumb {
+  background: #1D1D1C;
+  border-color: #0E0E0D;
+}
+
+body.dark-theme ::-webkit-scrollbar-thumb:hover {
+  background: #292928;
+}
+
+/* Keep sidebar navigation signature warm-accent charcoal styling persistent */
+.dark-theme aside#app-sidebar,
+.dark-theme aside#app-sidebar * {
+  --color-white: #171716;
+  --color-slate-900: #1C1C1A;      /* Classic dark sidebar background block */
+  --color-slate-800: #2B2B28;      /* Hover states */
+  --color-slate-300: #D9D7CE;      /* Nav text links */
+  --color-slate-500: #88867F;      /* Footer version captions */
+  --color-slate-850: rgb(48, 59, 52); /* Secure sage-colored divider line definitions */
+}
+
+/* Also shield mobile header/drawers */
+.dark-theme header.md\:hidden,
+.dark-theme nav.md\:hidden,
+.dark-theme nav.md\:hidden * {
+  --color-slate-900: #1C1C1A;
+  --color-slate-950: #0E0E0D;
+  --color-slate-800: #2B2B28;
+}
+

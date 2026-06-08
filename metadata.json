@@ -1,0 +1,6 @@
+{
+  "name": "Feynman AI Tutor",
+  "description": "An AI-powered tutor that helps students learn from PDFs, articles, or text using the Feynman Method of simplified explanations, analogies, testing, and concept teaching.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
